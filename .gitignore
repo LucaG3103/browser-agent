@@ -1,0 +1,12 @@
+# Ignora file con segreti
+src/content/apiConfig.js
+
+# Dipendenze (se ne userai in futuro)
+node_modules/
+
+# File temporanei e di sistema
+.DS_Store
+Thumbs.db
+*.log
+.vscode/
+.idea/

@@ -1,0 +1,39 @@
+{
+    "manifest_version": 3,
+    "name": "Button Scanner Extension",
+    "version": "2.0",
+    "description": "Scans buttons and highlights them based on background script logic.",
+    "background": {
+        "scripts": [
+            "src/background/background.js"
+        ]
+    },
+    "content_scripts": [
+        {
+            "matches": [
+                "<all_urls>"
+            ],
+            "js": [
+                "src/content/apiConfig.js",
+                "src/content/agentState.js",
+                "src/content/scanner.js",
+                "src/content/domCollector.js",
+                "src/content/actionExecutor.js",
+                "src/content/chat/drag.js",
+                "src/content/chat/messages.js",
+                "src/content/chat/llm.js",
+                "src/content/chat/config.js",
+                "src/content/chat/ui.js",
+                "src/content/main.js"
+            ],
+            "run_at": "document_idle"
+        }
+    ],
+    "permissions": [
+        "activeTab",
+        "storage"
+    ],
+    "host_permissions": [
+        "https://api.openai.com/*"
+    ]
+}

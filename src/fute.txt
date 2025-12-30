@@ -1,0 +1,3 @@
+autocompletamento dati iscrizione
+voice agente solo per chiedere -> elevenlabs
+Slava dati in locale browser
