@@ -237,6 +237,115 @@ function forceElementShow(index, buttons) {
 }
 
 /**
+ * Simula digitazione su un elemento
+ * @param {HTMLElement} element - Elemento DOM su cui scrivere
+ * @param {string} text - Testo da digitare
+ * @param {boolean} submit - Se premere Enter alla fine
+ */
+async function typeOnElement(element, text, submit = false) {
+    if (!element) {
+        throw new Error(`Elemento target non valido (null/undefined)`);
+    }
+
+    console.log('⌨️ Typing on element:', element);
+
+    // Assicurati che sia visibile
+    element.scrollIntoView({ block: "center", behavior: "smooth" });
+
+    // DEBUG VISIVO: Evidenzia l'elemento che stiamo per colpire
+    const originalBorder = element.style.border;
+    const originalBg = element.style.backgroundColor;
+    element.style.border = "4px solid red";
+    element.style.backgroundColor = "yellow";
+
+    // Attendi un attimo per far vedere all'utente dove stiamo scrivendo
+    await new Promise(r => setTimeout(r, 500));
+
+    let input = element;
+
+    // Se l'elemento target non è un input, cerchiamo un input al suo interno
+    if (input.tagName !== 'INPUT' && input.tagName !== 'TEXTAREA') {
+        const innerInput = input.querySelector('input, textarea');
+        if (innerInput) {
+            console.log(`🔍 Trovato input interno in ${input.tagName}`);
+            input = innerInput;
+        }
+    }
+
+    // Focus
+    input.focus();
+    input.click(); // Alcuni framework attivano l'input solo al click
+
+    // --- HUMAN-LIKE TYPING IMPLEMENTATION ---
+
+    // Cancella valore precedente
+    input.value = '';
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+
+    // Simula scrittura carattere per carattere
+    const delay = 50;
+
+    for (const char of text) {
+        const keydown = new KeyboardEvent("keydown", { key: char, code: `Key${char.toUpperCase()}`, bubbles: true });
+        const keypress = new KeyboardEvent("keypress", { key: char, code: `Key${char.toUpperCase()}`, bubbles: true });
+        const keyup = new KeyboardEvent("keyup", { key: char, code: `Key${char.toUpperCase()}`, bubbles: true });
+
+        // Dispatch keydown
+        input.dispatchEvent(keydown);
+
+        // Aggiorna valore (React-proof)
+        // Usiamo comunque il setter nativo per essere sicuri che React lo prenda,
+        // ma lo facciamo carattere per carattere
+        const currentValue = input.value;
+        const newValue = currentValue + char;
+
+        const prototype = Object.getPrototypeOf(input);
+        const nativeValueSetter = Object.getOwnPropertyDescriptor(prototype, "value").set;
+
+        if (nativeValueSetter && nativeValueSetter !== input.value) {
+            nativeValueSetter.call(input, newValue);
+        } else {
+            input.value = newValue;
+        }
+
+        // Dispatch keypress e input
+        input.dispatchEvent(keypress);
+        input.dispatchEvent(new Event("input", { bubbles: true })); // Fondamentale per React
+
+        // Dispatch keyup
+        input.dispatchEvent(keyup);
+
+        // Ritardo per realismo
+        await new Promise(r => setTimeout(r, delay));
+    }
+
+    // Dispatch change finale
+    input.dispatchEvent(new Event('change', { bubbles: true }));
+
+    // Key events finali
+    input.dispatchEvent(new KeyboardEvent('keydown', { bubbles: true }));
+    input.dispatchEvent(new KeyboardEvent('keyup', { bubbles: true }));
+
+    // Ripristina stili debug
+    element.style.border = originalBorder;
+    element.style.backgroundColor = originalBg;
+
+    input.blur();
+
+    if (submit) {
+        // Premi Enter
+        await new Promise(r => setTimeout(r, 100));
+        input.focus();
+        input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', code: 'Enter', keyCode: 13, which: 13, bubbles: true }));
+        input.dispatchEvent(new KeyboardEvent('keypress', { key: 'Enter', code: 'Enter', keyCode: 13, which: 13, bubbles: true }));
+        input.dispatchEvent(new KeyboardEvent('keyup', { key: 'Enter', code: 'Enter', keyCode: 13, which: 13, bubbles: true }));
+
+        // Cerca form parent e invia se necessario ???
+        // Meglio lasciare all'LLM di cliccare "Cerca" se Enter non va.
+    }
+}
+
+/**
  * Scansiona tutti gli elementi interattivi nella pagina
  * @returns {Array} Array di oggetti con informazioni sugli elementi trovati
  */

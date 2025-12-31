@@ -54,11 +54,11 @@ const agentState = {
     lastActionResult: null,      // Risultato ultima azione
     attempts: 0,                 // Tentativi per l'azione corrente
     maxAttempts: 3,              // Max retry per singola azione
-    maxTotalSteps: 8,            // Circuit breaker globale
+    maxTotalSteps: 25,           // Circuit breaker globale (Aumentato per task complessi)
     startTime: null,             // Timestamp inizio task
-    maxDuration: 60000,          // Timeout globale
+    maxDuration: 300000,         // Timeout globale (5 min)
     errors: [],                  // Errori accumulati
-    minDelayBetweenCalls: 4000,  // Minimo delay tra chiamate API
+    minDelayBetweenCalls: 1000,  // Minimo delay tra chiamate API (Ridotto per velocità)
     isPersisted: false,          // Flag per indicare se lo stato è stato ripristinato
     pendingAction: null          // Azione in corso di esecuzione (per gestire crash/navigazione)
 };

@@ -172,7 +172,7 @@ function createChatWindow() {
     makeDraggable(chatWindow, header);
 
     // Welcome message (usa la funzione da messages.js)
-    addMessage('Ciao! Sono pronto ad aiutarti. Scrivi un messaggio per iniziare!', 'bot');
+    addMessage('Ciao! 🚀 Versione DEBUG V2 (Type Fix) pronta.\nScrivi un comando per iniziare!', 'bot');
 }
 
 /**

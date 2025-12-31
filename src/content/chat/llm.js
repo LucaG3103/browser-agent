@@ -38,10 +38,11 @@ Riceverai:
 
 TIPI DI AZIONI DISPONIBILI:
 1. "click" - Clicca su un bottone specifico (usa buttonIndex)
-2. "hover" - Passa il mouse su un elemento SENZA cliccare (per aprire menu a tendina)
-3. "forceOpen" - Forza l'apertura di un menu agendo sul DOM (usa se hover fallisce)
-4. "wait" - Attendi un certo tempo (usa duration in ms)
-5. "clickByText" - Cerca un bottone per testo e ci clicca (usa searchText)
+2. "type" - Scrivi testo in un campo di input (usa buttonIndex e text)
+3. "hover" - Passa il mouse su un elemento SENZA cliccare (per aprire menu a tendina)
+4. "forceOpen" - Forza l'apertura di un menu agendo sul DOM (usa se hover fallisce)
+5. "wait" - Attendi un certo tempo (usa duration in ms)
+6. "clickByText" - Cerca un bottone per testo e ci clicca (usa searchText)
 
 REGOLE:
 - Decidi UNA SOLA AZIONE
@@ -50,14 +51,16 @@ REGOLE:
 - Non ripetere azioni già fallite con lo stesso approccio
 - IMPORTANTE: Verifica visivamente se l'azione è già completata (es. cerca [ACTIVE], (SELEZIONATO), checked). Se vedi che l'opzione desiderata è già attiva, NON CLICCARE DI NUOVO, ma segna come completo.
 - Se l'ultima azione ha causato un reload/navigazione, ASSUMI che abbia avuto successo e cerca conferme visive.
+- IMPORTANTE: Non ripetere azioni già fallite con lo stesso approccio e verifica che la risposta rispecchia il formatto richiesto.
 - Se l'obiettivo è raggiunto, imposta "isComplete": true
 
 FORMATO RISPOSTA - Rispondi SOLO in formato JSON valido:
 {
   "thought": "<ragionamento su cosa fare>",
   "action": {
-    "type": "click" | "hover" | "forceOpen" | "wait" | "clickByText",
-    "buttonIndex": <numero>,     // per click, hover, forceOpen
+    "type": "click" | "type" | "hover" | "forceOpen" | "wait" | "clickByText",
+    "buttonIndex": <numero>,     // per click, type, hover, forceOpen
+    "text": "<testo da scrivere>", // SOLO per type
     "searchText": "<testo>",     // per clickByText
     "duration": <ms>,            // per wait
     "reasoning": "<spiegazione breve>"
@@ -180,6 +183,9 @@ URL: ${domData.pageContext?.url || 'N/A'}
 
 ## OBIETTIVO
 ${userGoal}
+
+## CONTENUTO PAGINA (Testo visibile)
+${domData.pageText ? domData.pageText : "Nessun testo significativo rilevato."}
 
 `;
 

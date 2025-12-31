@@ -4,41 +4,82 @@
 let configPanel = null;
 let isConfigOpen = false;
 
+// Default provider
+const DEFAULT_PROVIDER = 'openai';
+
 /**
- * Salva la API key nello storage
- * @param {string} apiKey - API key di OpenAI
+ * Salva la configurazione nello storage
+ * @param {string} provider - Provider selezionato (openai, google)
+ * @param {string} apiKey - API key del provider
  * @returns {Promise<void>}
  */
-async function saveAPIKey(apiKey) {
+async function saveConfig(provider, apiKey) {
     try {
-        await browser.storage.local.set({ openai_api_key: apiKey });
-        console.log('✅ API Key salvata');
+        const config = {
+            llm_provider: provider,
+        };
+
+        // Salva la key specifica per il provider
+        if (provider === 'openai') {
+            config.openai_api_key = apiKey;
+        } else if (provider === 'google') {
+            config.google_api_key = apiKey;
+        }
+
+        await browser.storage.local.set(config);
+        console.log('✅ Configurazione salvata:', provider);
         return true;
     } catch (error) {
-        console.error('❌ Errore salvataggio API key:', error);
+        console.error('❌ Errore salvataggio configurazione:', error);
         throw error;
     }
 }
 
 /**
- * Verifica se l'API key è configurata
- * @returns {Promise<boolean>}
+ * Recupera la configurazione corrente
+ * @returns {Promise<Object>}
  */
-async function isAPIKeyConfigured() {
-    const apiKey = await getAPIKey();
-    return apiKey !== null && apiKey.length > 0;
+async function getConfig() {
+    try {
+        const result = await browser.storage.local.get(['llm_provider', 'openai_api_key', 'google_api_key']);
+        return {
+            provider: result.llm_provider || DEFAULT_PROVIDER,
+            openaiKey: result.openai_api_key || '',
+            googleKey: result.google_api_key || ''
+        };
+    } catch (error) {
+        console.error('❌ Errore recupero configurazione:', error);
+        return { provider: DEFAULT_PROVIDER, openaiKey: '', googleKey: '' };
+    }
 }
 
 /**
- * Valida il formato dell'API key OpenAI
+ * Verifica se l'API key per il provider attivo è configurata
+ * @returns {Promise<boolean>}
+ */
+async function isAPIKeyConfigured() {
+    const config = await getConfig();
+    if (config.provider === 'openai') return !!config.openaiKey;
+    if (config.provider === 'google') return !!config.googleKey;
+    return false;
+}
+
+/**
+ * Valida il formato dell'API key
+ * @param {string} provider - Provider
  * @param {string} apiKey - API key da validare
  * @returns {boolean}
  */
-function validateAPIKeyFormat(apiKey) {
-    // Le API key di OpenAI iniziano con "sk-" e hanno una lunghezza specifica
-    return typeof apiKey === 'string' &&
-        apiKey.startsWith('sk-') &&
-        apiKey.length > 20;
+function validateAPIKeyFormat(provider, apiKey) {
+    if (!apiKey || apiKey.length < 10) return false;
+
+    if (provider === 'openai') {
+        return apiKey.startsWith('sk-');
+    } else if (provider === 'google') {
+        // Le key di Google AI Studio di solito non hanno prefisso fisso, ma controlliamo lunghezza
+        return apiKey.length > 20;
+    }
+    return false;
 }
 
 /**
@@ -77,7 +118,7 @@ function createConfigPanel() {
         align-items: center;
     `;
     header.innerHTML = `
-        <span>⚙️ Configurazione</span>
+        <span>⚙️ Configurazione AI</span>
         <button id="close-config" style="background: none; border: none; color: white; font-size: 20px; cursor: pointer; padding: 0; width: 24px; height: 24px;">×</button>
     `;
 
@@ -88,36 +129,52 @@ function createConfigPanel() {
     `;
 
     body.innerHTML = `
-        <div style="margin-bottom: 15px;">
+        <div style="margin-bottom: 20px;">
             <label style="display: block; margin-bottom: 8px; font-weight: 500; color: #333; font-size: 14px;">
-                OpenAI API Key
+                Modello IA
             </label>
-            <div style="position: relative;">
-                <input 
-                    type="password" 
-                    id="api-key-input" 
-                    placeholder="sk-..."
-                    style="width: 100%; padding: 10px 40px 10px 12px; border: 1px solid #e0e0e0; border-radius: 8px; font-size: 14px; font-family: monospace; box-sizing: border-box;"
-                />
-                <button 
-                    id="toggle-visibility" 
-                    style="position: absolute; right: 8px; top: 50%; transform: translateY(-50%); background: none; border: none; cursor: pointer; font-size: 18px; padding: 4px;"
-                    title="Mostra/Nascondi"
-                >👁️</button>
+            <select id="provider-select" style="width: 100%; padding: 10px; border: 1px solid #e0e0e0; border-radius: 8px; font-size: 14px; background: white;">
+                <option value="openai">OpenAI (GPT-4o)</option>
+                <option value="google">Google (Gemini 3 Pro)</option>
+            </select>
+        </div>
+
+        <div id="openai-config" class="provider-section">
+            <div style="margin-bottom: 15px;">
+                <label style="display: block; margin-bottom: 8px; font-weight: 500; color: #333; font-size: 14px;">
+                    OpenAI API Key
+                </label>
+                <div style="position: relative;">
+                    <input type="password" id="openai-key-input" placeholder="sk-..." class="api-key-input"
+                        style="width: 100%; padding: 10px 40px 10px 12px; border: 1px solid #e0e0e0; border-radius: 8px; font-size: 14px; font-family: monospace; box-sizing: border-box;" />
+                </div>
+                <div style="margin-top: 8px;">
+                    <a href="https://platform.openai.com/api-keys" target="_blank" style="color: #667eea; font-size: 13px; text-decoration: none;">
+                        🔗 Ottieni API Key OpenAI
+                    </a>
+                </div>
             </div>
-            <p style="margin-top: 8px; font-size: 12px; color: #666;">
-                La chiave verrà salvata localmente nel browser.
-            </p>
+        </div>
+
+        <div id="google-config" class="provider-section" style="display: none;">
+            <div style="margin-bottom: 15px;">
+                <label style="display: block; margin-bottom: 8px; font-weight: 500; color: #333; font-size: 14px;">
+                    Google Gemini API Key
+                </label>
+                <div style="position: relative;">
+                    <input type="password" id="google-key-input" placeholder="AIzaSy..." class="api-key-input"
+                        style="width: 100%; padding: 10px 40px 10px 12px; border: 1px solid #e0e0e0; border-radius: 8px; font-size: 14px; font-family: monospace; box-sizing: border-box;" />
+                </div>
+                 <div style="margin-top: 8px;">
+                    <a href="https://aistudio.google.com/app/apikey" target="_blank" style="color: #667eea; font-size: 13px; text-decoration: none;">
+                        🔗 Ottieni API Key Google AI Studio
+                    </a>
+                </div>
+            </div>
         </div>
         
-        <div style="margin-bottom: 15px;">
-            <a href="https://platform.openai.com/api-keys" target="_blank" style="color: #667eea; font-size: 13px; text-decoration: none;">
-                🔗 Ottieni la tua API key da OpenAI
-            </a>
-        </div>
-        
-        <div style="display: flex; gap: 10px;">
-            <button id="save-api-key" style="flex: 1; padding: 10px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 500; font-size: 14px;">
+        <div style="display: flex; gap: 10px; margin-top: 20px;">
+            <button id="save-config-btn" style="flex: 1; padding: 10px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 500; font-size: 14px;">
                 Salva
             </button>
             <button id="cancel-config" style="flex: 1; padding: 10px; background: #f0f0f0; color: #333; border: none; border-radius: 8px; cursor: pointer; font-weight: 500; font-size: 14px;">
@@ -132,51 +189,70 @@ function createConfigPanel() {
     configPanel.appendChild(body);
     document.body.appendChild(configPanel);
 
+    // References
+    const providerSelect = body.querySelector('#provider-select');
+    const openaiSection = body.querySelector('#openai-config');
+    const googleSection = body.querySelector('#google-config');
+
     // Event listeners
     header.querySelector('#close-config').addEventListener('click', closeConfigPanel);
     body.querySelector('#cancel-config').addEventListener('click', closeConfigPanel);
-    body.querySelector('#save-api-key').addEventListener('click', handleSaveAPIKey);
+    body.querySelector('#save-config-btn').addEventListener('click', handleSaveConfig);
 
-    // Toggle visibility
-    const toggleBtn = body.querySelector('#toggle-visibility');
-    const input = body.querySelector('#api-key-input');
-    toggleBtn.addEventListener('click', () => {
-        input.type = input.type === 'password' ? 'text' : 'password';
+    // Switch provider logic
+    providerSelect.addEventListener('change', (e) => {
+        if (e.target.value === 'openai') {
+            openaiSection.style.display = 'block';
+            googleSection.style.display = 'none';
+        } else {
+            openaiSection.style.display = 'none';
+            googleSection.style.display = 'block';
+        }
     });
 
-    // Carica il valore esistente se presente
-    loadCurrentAPIKey();
+    // Carica configurazione
+    loadCurrentConfig();
 }
 
 /**
- * Carica l'API key corrente nel form
+ * Carica la configurazione corrente nel form
  */
-async function loadCurrentAPIKey() {
-    const apiKey = await getAPIKey();
-    if (apiKey) {
-        document.getElementById('api-key-input').value = apiKey;
+async function loadCurrentConfig() {
+    const config = await getConfig();
+
+    const providerSelect = document.getElementById('provider-select');
+    if (!providerSelect) return;
+
+    providerSelect.value = config.provider;
+    document.getElementById('openai-key-input').value = config.openaiKey;
+    document.getElementById('google-key-input').value = config.googleKey;
+
+    // Trigger change event to update UI visibility
+    providerSelect.dispatchEvent(new Event('change'));
+}
+
+/**
+ * Gestisce il salvataggio
+ */
+async function handleSaveConfig() {
+    const provider = document.getElementById('provider-select').value;
+    let apiKey = '';
+
+    if (provider === 'openai') {
+        apiKey = document.getElementById('openai-key-input').value.trim();
+    } else {
+        apiKey = document.getElementById('google-key-input').value.trim();
     }
-}
 
-/**
- * Gestisce il salvataggio dell'API key
- */
-async function handleSaveAPIKey() {
-    const input = document.getElementById('api-key-input');
-    const apiKey = input.value.trim();
-    const messageDiv = document.getElementById('config-message');
-
-    // Valida formato
-    if (!validateAPIKeyFormat(apiKey)) {
-        showConfigMessage('❌ Formato API key non valido. Deve iniziare con "sk-"', 'error');
+    // Valida
+    if (!validateAPIKeyFormat(provider, apiKey)) {
+        showConfigMessage(`❌ API Key non valida per ${provider === 'openai' ? 'OpenAI' : 'Google Gemini'}`, 'error');
         return;
     }
 
     try {
-        await saveAPIKey(apiKey);
-        showConfigMessage('✅ API Key salvata con successo!', 'success');
-
-        // Chiudi il pannello dopo 1.5 secondi
+        await saveConfig(provider, apiKey);
+        showConfigMessage('✅ Configurazione salvata!', 'success');
         setTimeout(closeConfigPanel, 1500);
     } catch (error) {
         showConfigMessage('❌ Errore durante il salvataggio', 'error');
@@ -184,10 +260,12 @@ async function handleSaveAPIKey() {
 }
 
 /**
- * Mostra un messaggio nel pannello di configurazione
+ * Mostra un messaggio nel pannello
  */
 function showConfigMessage(message, type) {
     const messageDiv = document.getElementById('config-message');
+    if (!messageDiv) return;
+
     messageDiv.textContent = message;
     messageDiv.style.display = 'block';
     messageDiv.style.background = type === 'success' ? '#d4edda' : '#f8d7da';
@@ -195,29 +273,20 @@ function showConfigMessage(message, type) {
     messageDiv.style.border = `1px solid ${type === 'success' ? '#c3e6cb' : '#f5c6cb'}`;
 }
 
-/**
- * Apre il pannello di configurazione
- */
 function openConfigPanel() {
-    if (!configPanel) {
-        createConfigPanel();
-    }
+    if (!configPanel) createConfigPanel();
     configPanel.style.display = 'flex';
     isConfigOpen = true;
 
-    // Reset messaggio
+    // Ricarica i dati aggiornati
+    loadCurrentConfig();
+
+    // Reset messaggi
     const messageDiv = document.getElementById('config-message');
-    if (messageDiv) {
-        messageDiv.style.display = 'none';
-    }
+    if (messageDiv) messageDiv.style.display = 'none';
 }
 
-/**
- * Chiude il pannello di configurazione
- */
 function closeConfigPanel() {
-    if (configPanel) {
-        configPanel.style.display = 'none';
-    }
+    if (configPanel) configPanel.style.display = 'none';
     isConfigOpen = false;
 }

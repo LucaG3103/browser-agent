@@ -192,6 +192,17 @@ async function runAgenticLoop(goal) {
 
             // 8. Esegui SINGOLA azione (usa allButtons per avere tutti gli elementi)
             setPendingAction(decision.action); // Registra come pendente prima di eseguire
+
+            // DEBUG TARGET: Mostriamo all'utente su COSA stiamo agendo
+            const targetPool = domData.buttons;
+            const targetIdx = decision.action.buttonIndex;
+            if (targetPool && targetPool[targetIdx]) {
+                const t = targetPool[targetIdx];
+                const cleanText = t.text ? t.text.substring(0, 15).replace(/\n/g, ' ') : '';
+                const debugMsg = `🎯 Target [${targetIdx}]: <${t.tagName}> ${cleanText ? '"' + cleanText + '"' : ''} ${t.id ? '#' + t.id : ''}`;
+                addMessage(debugMsg, 'bot');
+            }
+
             const result = await executeSingleAction(decision.action, domData.allButtons || domData.buttons);
 
             // 9. Registra risultato
@@ -304,6 +315,17 @@ async function resumeAgenticLoop(goal) {
 
             // 8. Esegui SINGOLA azione
             setPendingAction(decision.action); // Registra come pendente prima di eseguire
+
+            // DEBUG TARGET (Resume)
+            const targetPool = domData.buttons;
+            const targetIdx = decision.action.buttonIndex;
+            if (targetPool && targetPool[targetIdx]) {
+                const t = targetPool[targetIdx];
+                const cleanText = t.text ? t.text.substring(0, 15).replace(/\n/g, ' ') : '';
+                const debugMsg = `🎯 Target [${targetIdx}]: <${t.tagName}> ${cleanText ? '"' + cleanText + '"' : ''} ${t.id ? '#' + t.id : ''}`;
+                addMessage(debugMsg, 'bot');
+            }
+
             const result = await executeSingleAction(decision.action, domData.allButtons || domData.buttons);
 
             // 9. Registra risultato (questo salva anche lo stato)
@@ -340,42 +362,8 @@ async function resumeAgenticLoop(goal) {
     console.log('🏁 Loop agentico resumed terminato');
 }
 
-/**
- * Esegue una singola azione
- * @param {Object} action - Azione da eseguire
- * @param {Array} buttons - Bottoni disponibili
- * @returns {Promise<Object>} Risultato dell'azione
- */
-async function executeSingleAction(action, buttons) {
-    console.log(`⚙️ Eseguo azione: ${action.type}`);
-
-    try {
-        switch (action.type) {
-            case 'click':
-                return await executeClickAction(action, buttons);
-
-            case 'hover':
-                return await executeHoverAction(action, buttons);
-
-            case 'forceOpen':
-                return await executeForceOpenAction(action, buttons);
-
-            case 'wait':
-                await sleep(action.duration || 1000);
-                return { success: true };
-
-            case 'clickByText':
-                return await executeClickByTextAction(action, buttons);
-
-            default:
-                console.warn(`⚠️ Tipo azione sconosciuto: ${action.type}`);
-                return { success: false, error: `Tipo sconosciuto: ${action.type}` };
-        }
-    } catch (error) {
-        console.error(`❌ Errore durante ${action.type}:`, error);
-        return { success: false, error: error.message };
-    }
-}
+// Funzione executeSingleAction rimossa per evitare duplicati con actionExecutor.js.
+// Ripristino sleep() necessaria per questo modulo.
 
 /**
  * Utility per sleep

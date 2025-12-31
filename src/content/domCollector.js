@@ -2,7 +2,7 @@
 // Raccoglie e serializza il DOM della pagina per invio all'LLM
 
 // Limite massimo di bottoni da inviare all'LLM
-const MAX_BUTTONS_FOR_LLM = 100;
+const MAX_BUTTONS_FOR_LLM = 300;
 
 /**
  * Raccoglie informazioni sul DOM della pagina corrente
@@ -33,14 +33,61 @@ function collectDOMData() {
         description: document.querySelector('meta[name="description"]')?.content || ''
     };
 
-    console.log(`📊 DOM Data: ${allButtons.length} totali → ${serializedButtons.length} filtrati per LLM`);
+    // Estrai testo significativo dalla pagina (H1-H6, P, ecc.) per context awareness
+    const pageText = collectPageText();
+
+    console.log(`📊 DOM Data: ${allButtons.length} totali → ${serializedButtons.length} filtrati, testo pagina: ${pageText.length} chars`);
 
     return {
         pageContext,
+        pageText,      // Nuovo campo content-aware
         buttons: serializedButtons,
         allButtons: allButtons, // Mantieni tutti per le azioni
         timestamp: new Date().toISOString()
     };
+}
+
+/**
+ * Estrae il testo visibile e significativo della pagina
+ * per aiutare l'LLM a capire dove si trova anche se non clicca nulla.
+ * Raccoglie Headers e Paragrafi principali.
+ */
+function collectPageText() {
+    try {
+        // Seleziona elementi di testo rilevanti
+        const textElements = document.querySelectorAll('h1, h2, h3, h4, h5, h6, p, article, section li, main li');
+        let extractedText = "";
+        let count = 0;
+        const MAX_CHARS = 3000; // Limite safe per il prompt
+
+        for (const el of textElements) {
+            // Ignora elementi non visibili
+            if (el.offsetParent === null) continue;
+
+            // Ignora elementi con pochissimo testo o solo numeri
+            const text = el.innerText.trim();
+            if (text.length < 5) continue;
+
+            // Evita duplicati parziali (molto semplice)
+            if (extractedText.includes(text.substring(0, 50))) continue;
+
+            const tag = el.tagName.toLowerCase();
+            const prefix = tag.startsWith('h') ? '#'.repeat(parseInt(tag[1])) + ' ' : '';
+
+            extractedText += `${prefix}${text}\n`;
+            count += text.length;
+
+            if (count >= MAX_CHARS) {
+                extractedText += "\n...[Testo troncato per limite lunghezza]...";
+                break;
+            }
+        }
+
+        return extractedText;
+    } catch (e) {
+        console.warn("Errore estrazione testo pagina:", e);
+        return "";
+    }
 }
 
 /**
@@ -67,9 +114,16 @@ function filterRelevantButtons(buttons) {
     // Classifica i bottoni
     const scored = buttons.map(btn => {
         let score = 0;
-        const text = (btn.text || '').toLowerCase();
-        const id = (btn.id || '').toLowerCase();
-        const className = (btn.className || '').toLowerCase();
+
+        // Robustezza contro tipi non stringa (es. SVGAnimatedString per className)
+        const text = String(btn.text || '').toLowerCase();
+        const id = String(btn.id || '').toLowerCase();
+
+        let rawClass = btn.className;
+        if (rawClass && typeof rawClass === 'object' && 'baseVal' in rawClass) {
+            rawClass = rawClass.baseVal; // Gestione SVG
+        }
+        const className = String(rawClass || '').toLowerCase();
 
         // Escludi bottoni senza testo significativo
         if (!text || text.length < 2) {

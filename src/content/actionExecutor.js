@@ -177,10 +177,87 @@ async function executeClickByTextAction(action, buttons) {
 }
 
 /**
- * Utility per sleep (locale per evitare conflitti)
- * @param {number} ms - Millisecondi da attendere
- * @returns {Promise}
+ * Esegue un'azione di scrittura (type) su un input
+ * @param {Object} action - Azione da eseguire
+ * @param {Array} buttons - Array dei bottoni disponibili
+ * @returns {Promise<Object>} Risultato dell'azione
  */
+async function executeTypeAction(action, buttons) {
+    // Se non abbiamo bottoni, scansiona
+    if (!buttons || buttons.length === 0) {
+        buttons = scanButtons();
+    }
+
+    const index = action.buttonIndex;
+
+    if (index < 0 || index >= buttons.length) {
+        return {
+            success: false,
+            error: `Elemento index ${index} non valido (disponibili: ${buttons.length})`
+        };
+    }
+
+    const button = buttons[index];
+    console.log(`⌨️ Type su elemento [${index}]: "${action.text}"`);
+
+    try {
+        // Evidenzia elemento
+        highlightButton(index, buttons, false); // false = non cliccare, solo focus
+
+        // Passiamo direttamente l'elemento DOM
+        await typeOnElement(button.element, action.text, true);
+
+        return { success: true, typed: action.text };
+    } catch (error) {
+        return { success: false, error: error.message };
+    }
+}
+
+
+/**
+ * Esegue UNA singola azione in base al tipo
+ * @param {Object} action - L'azione da eseguire
+ * @param {Array} buttons - Lista di tutti i bottoni/elementi interattivi
+ * @returns {Promise<Object>} Risultato { success, ... }
+ */
+async function executeSingleAction(action, buttons) {
+    console.log('🎬 Esecuzione azione singola:', action.type);
+
+    try {
+        switch (action.type) {
+            case 'click':
+                return await executeClickAction(action, buttons);
+
+            case 'hover':
+                return await executeHoverAction(action, buttons);
+
+            case 'forceOpen':
+                return await executeForceOpenAction(action, buttons);
+
+            case 'clickByText':
+                return await executeClickByTextAction(action, buttons);
+
+            case 'type': // NUOVA AZIONE
+                return await executeTypeAction(action, buttons);
+
+            case 'wait':
+                const duration = action.duration || 2000;
+                console.log(`⏳ Attesa esplicita di ${duration}ms`);
+                await sleepAction(duration);
+                return { success: true, waited: duration };
+
+            case 'error':
+                return { success: false, error: action.reasoning };
+
+            default:
+                return { success: false, error: `Tipo azione sconosciuto: ${action.type}` };
+        }
+    } catch (error) {
+        console.error('❌ Errore esecuzione azione:', error);
+        return { success: false, error: error.message };
+    }
+}
+
 function sleepAction(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
 }
